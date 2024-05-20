@@ -5,7 +5,7 @@
 //////GPIO PIN DEFINITION//////
 
 // Servo 
-const int SERVOPIN = 33;    //Pin 8
+const int SERVOPIN = 32;    //Pin 8
 Servo servoMotor;
 
 //////INIT FUNCTIONS//////
