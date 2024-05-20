@@ -25,7 +25,6 @@ void servoInit(){
 void setServoRight(){
   //for debugging
   Serial.println("ServoRight");
-
   servoMotor.write(20);
 }
 void setServoLeft(){
@@ -41,17 +40,12 @@ void setServoMiddle(){
 
 
 void setup() {
+  Serial.begin(115200);
   servoInit();
 
 }
 
 void loop() {
 
-  setServoLeft();
-  delay(300);
-  setServoMiddle();
-  delay(300);
-  setServoRight();
-  delay(300);
 
 }
