@@ -20,12 +20,14 @@ const int TRIG = 14;    //Pin 12
 
 //////CONSTANTS//////
 //////CONSTANTS//////
-const float soundSpeed20 =  0.034300;  //Speed of sound at 20°C
-const float soundSpeed35 =  0.035251;  //Speed of sound at 35°C
-const float soundSpeed40 =  0.035554;  //Speed of sound at 40°C
+const float soundSpeed20 =  0.034300;   //Speed of sound at 20°C
+const float soundSpeed35 =  0.035251;   //Speed of sound at 35°C
+const float soundSpeed40 =  0.035554;   //Speed of sound at 40°C
 
 const int sensingDelay = 100;
 const int distancesamples = 10;
+const int maxDistance = 400;            // Expected max distance to be accurately measured (cm
+const int minDistance = 0;
 
 //////VARIABLES//////
 //////VARIABLES//////
@@ -51,7 +53,8 @@ void avoidDistantCollition(void);
 void ultrasonicInit(void);
 void bubbleSort(long arr[], int size);
 long median(long arr[], int size);
-long getDistance(void);
+long calculateDistance(void);
+long measureDistance(void);
 
 //////INIT FUNCTIONS//////
 //////INIT FUNCTIONS//////
@@ -145,27 +148,35 @@ void avoidDistantCollition(){
 }
 
 //Distance Measurement
-long getDistance(){
-  // Clear the trigPin
+long calculatetDistance(){
+  // Read many samples of duration of the wave (microseconds) and append them to an array 
+  for (int i = 0; i < distancesamples; i++) {
+    long duration = measureDistance();
+    int distance = duration * soundSpeed40 / 2;
+
+    // distance must 
+    if (distance >= minDistance && distance <= maxDistance){
+      measurements[i] = duration;
+      delay(2); //Small pause between measurements
+    }
+ }
+
+  // Gets the median of wave travel duration
+  long medianDuration = median(measurements, distancesamples);
+  int filteredDistance = medianDuration * soundSpeed40 / 2; // Convert duration to distance (cm)
+  return filteredDistance;
+}
+
+long measureDistance(){
   digitalWrite(TRIG, LOW);
   delayMicroseconds(2);
-
-  // Set the trigPin on HIGH state for 10 microseconds
   digitalWrite(TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
-
-  // Read many samples of duration of the wave (microseconds) and append them to an array 
-  for (int i = 0; i < distancesamples; i++) {
-    measurements[i] = pulseIn(ECHO, HIGH);
-    delay(2); //Small pause between measurements
-  }
-
-  // Gets the median of wave travel duration
-  long duration = median(measurements, distancesamples);
-  int distance = duration * soundSpeed40 / 2; // Convert duration to distance (cm)
-  return distance;
+  long duration = pulseIn(ECHO, HIGH);
+  return duration;
 }
+
 // gets the median of an array of samples
 long median(long arr[], int size){
   bubbleSort(arr, size);
@@ -201,10 +212,10 @@ void setup() {
 
 void loop() {
 
-  if (millis() - timeCounter1 >= sensingDelay){
+  if (millis() - timeCounter1 > sensingDelay){
     timeCounter1 = millis();
     // Run the next instructions each "sensingDelay" miliseconds
-    Serial.println(getDistance());
+    Serial.println(calculatetDistance());
   }
   
 }
