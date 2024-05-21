@@ -8,10 +8,50 @@
 const int SERVOPIN = 32;    //Pin 7
 Servo servoMotor;
 
-  // DC motor
-const int ENA = 33;    // Pin 8 
-const int IN1 = 26;    // Pin 9
-const int IN2 = 25;    // Pin 10
+// DC motor
+const int ENA = 33;     // Pin 8 
+const int IN1 = 26;     // Pin 9
+const int IN2 = 25;     // Pin 10
+
+// Ultrasonic
+const int ECHO = 27;    //Pin 11
+const int TRIG = 14;    //Pin 12
+
+
+//////CONSTANTS//////
+//////CONSTANTS//////
+const float soundSpeed20 =  0.034300;  //Speed of sound at 20°C
+const float soundSpeed35 =  0.035251;  //Speed of sound at 35°C
+const float soundSpeed40 =  0.035554;  //Speed of sound at 40°C
+
+const int sensingDelay = 100;
+const int distancesamples = 10;
+
+//////VARIABLES//////
+//////VARIABLES//////
+unsigned long timeCounter1;
+
+long measurements[distancesamples];
+
+//////PRPOTOYPE FUNCTIONS//////
+//////PROTOTYPE FUNCTIONS//////
+void servoInit(void);
+void setServoRight(void);
+void setServoLeft(void);
+void setServoMiddle(void);
+
+void dcMotorInit(void);
+void setMotorForward(void);
+void setMotorStop(void);
+void setMotorBackward(void);
+
+void avoidInminentCollition(void);
+void avoidDistantCollition(void);
+
+void ultrasonicInit(void);
+void bubbleSort(long arr[], int size);
+long median(long arr[], int size);
+long getDistance(void);
 
 //////INIT FUNCTIONS//////
 //////INIT FUNCTIONS//////
@@ -31,6 +71,14 @@ void dcMotorInit(){
   digitalWrite (IN1, LOW);
   digitalWrite (IN2, LOW);
   analogWrite(ENA,0);
+}
+
+// Ultrasonic
+void ultrasonicInit(){
+    Serial.println("Ultrasonic initiated");
+  pinMode(TRIG, OUTPUT); 
+  pinMode(ECHO, INPUT);  
+  digitalWrite(TRIG, LOW);  //Inicializamos el pin con 0
 }
 
 //////BEHAVIORAL FUNCTIONS//////
@@ -73,15 +121,90 @@ void setMotorStop(){
   analogWrite(ENA,0);
 }
 
+//Obstacle avoidance
+void avoidInminentCollition(){
+  Serial.println("Inminent obstacle");
+  setMotorStop();
+  delay(2000);
+
+  setMotorBackward();
+  delay(2500);
+}
+void avoidDistantCollition(){
+  Serial.println("Distant obstacle");
+  setServoLeft();
+  delay(2000);
+
+  setServoMiddle();
+  delay(1000);
+
+  setServoRight();
+  delay(1500);
+
+  setServoMiddle();
+}
+
+//Distance Measurement
+long getDistance(){
+  // Clear the trigPin
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+
+  // Set the trigPin on HIGH state for 10 microseconds
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+
+  // Read many samples of duration of the wave (microseconds) and append them to an array 
+  for (int i = 0; i < distancesamples; i++) {
+    measurements[i] = pulseIn(ECHO, HIGH);
+    delay(2); //Small pause between measurements
+  }
+
+  // Gets the median of wave travel duration
+  long duration = median(measurements, distancesamples);
+  int distance = duration * soundSpeed40 / 2; // Convert duration to distance (cm)
+  return distance;
+}
+// gets the median of an array of samples
+long median(long arr[], int size){
+  bubbleSort(arr, size);
+  if (size % 2 == 0) {
+    return (arr[size / 2 - 1] + arr[size / 2]) / 2;
+  } else {
+    return arr[size / 2];
+  }
+}
+
+// Sorts the array of samples
+void bubbleSort(long arr[], int size) {
+  for (int i = 0; i < size - 1; i++) {
+    for (int j = 0; j < size - i - 1; j++) {
+      if (arr[j] > arr[j + 1]) {
+        long temp = arr[j];
+        arr[j] = arr[j + 1];
+        arr[j + 1] = temp;
+      }
+    }
+  }
+}
+
 
 void setup() {
   Serial.begin(115200);
   servoInit();
   dcMotorInit();
+  ultrasonicInit();
 
+  timeCounter1 = millis();
 }
 
 void loop() {
 
-
+  if (millis() - timeCounter1 >= sensingDelay){
+    timeCounter1 = millis();
+    // Run the next instructions each "sensingDelay" miliseconds
+    Serial.println(getDistance());
+  }
+  
 }
