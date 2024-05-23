@@ -3,6 +3,9 @@
 #include <WiFi.h>
 #include <WiFiMulti.h>
 #include <QuickDebug.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -13,16 +16,22 @@
 
 // Servo 
 const int SERVOPIN = 32;    //Pin 7 (read as an IC)
-Servo servoMotor;
+Servo servoMotor;           //Servo object
 
 // DC motor
-const int ENA = 33;     // Pin 8  (read as an IC)
-const int IN1 = 26;     // Pin 9 (read as an IC)
-const int IN2 = 25;     // Pin 10 (read as an IC)
+const int ENA = 33;         // Pin 8  (read as an IC)
+const int IN1 = 26;         // Pin 9 (read as an IC)
+const int IN2 = 25;         // Pin 10 (read as an IC)
 
 // Ultrasonic
-const int ECHO = 27;    //Pin 11 (read as an IC)
-const int TRIG = 14;    //Pin 12 (read as an IC)
+const int ECHO = 27;        //Pin 11 (read as an IC)
+const int TRIG = 14;        //Pin 12 (read as an IC)
+
+//MPU6050
+float velocity = 0;
+float distance = 0;
+unsigned long prevTime; 
+Adafruit_MPU6050 mpu;       //MPU6050 object
 
 //======CONSTANTS===========================================================
 //======CONSTANTS===========================================================
@@ -31,15 +40,15 @@ const float soundSpeed20 =  0.034300;   //Speed of sound at 20°C
 const float soundSpeed35 =  0.035251;   //Speed of sound at 35°C
 const float soundSpeed40 =  0.035554;   //Speed of sound at 40°C
 
-const int sensingDelay = 100;
-const int distancesamples = 20;
-const int maxDistance = 400;            // Expected max distance to be accurately measured (cm)
-const int minDistance = 0;
+const int sensingDelay = 100;           
+const int distancesamples = 20;         //Samples taken from the ultrasonic
+const int maxDistance = 400;            //Expected max distance to be accurately measured (cm)
+const int minDistance = 0;              //Expected min distance
 
-const uint32_t TiempoEsperaWifi = 5000;
+const uint32_t TiempoEsperaWifi = 5000; //This much will wait to connect
 WiFiMulti wifiMulti;
 
-const char* googleMapsApiKey = "AIzaSyA4wkYwQQbMOY4VClZA_Fr01B7Jv55FksE";
+const char* googleMapsApiKey = "AIzaSyA4wkYwQQbMOY4VClZA_Fr01B7Jv55FksE";   //access to Google API
 
 //======VARIABLES===========================================================
 //======VARIABLES===========================================================
@@ -83,6 +92,8 @@ void getLocation(void);
 void getDirections(void);
 void parseDirections(String payload);
 
+void mpu6050Init(void);
+
 //======INIT FUNCTIONS===========================================================
 //======INIT FUNCTIONS===========================================================
 
@@ -111,6 +122,45 @@ void ultrasonicInit(){
   pinMode(TRIG, OUTPUT); 
   pinMode(ECHO, INPUT);  
   digitalWrite(TRIG, LOW);  //Inicializamos el pin con 0
+}
+
+// WiFi
+void wifiInit() {
+  // Replace with your network credentials
+
+  wifiMulti.addAP("Galaxy A33 5GB9A6","tbnb8296");
+  wifiMulti.addAP("WLAN_MOSAN","$Mosan1999");
+  wifiMulti.addAP("IZZI-8830","ttD7uDeX");
+
+  WiFi.mode(WIFI_MODE_STA);
+  Serial.print("Conecting ..");
+  while (wifiMulti.run(TiempoEsperaWifi) != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println(".. Connected");
+  Serial.print("SSID:");
+  Serial.print(WiFi.SSID());
+  Serial.print(" ID:");
+  Serial.println(WiFi.localIP());
+}
+
+//MPU6050
+void mpuInit(){
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  // Set ranges and filters
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+
+  Serial.println("MPU6050 found!");
+  // Initialize the previous time
+  prevTime = millis();
 }
 
 //======BEHAVIORAL FUNCTIONS===========================================================
@@ -224,25 +274,6 @@ void bubbleSort(long arr[], int size) {
   }
 }
 
-void wifiInit() {
-  // Replace with your network credentials
-
-  wifiMulti.addAP("Galaxy A33 5GB9A6","tbnb8296");
-  wifiMulti.addAP("WLAN_MOSAN","$Mosan1999");
-  wifiMulti.addAP("IZZI-8830","ttD7uDeX");
-
-  WiFi.mode(WIFI_MODE_STA);
-  Serial.print("Conecting ..");
-  while (wifiMulti.run(TiempoEsperaWifi) != WL_CONNECTED) {
-    Serial.print(".");
-    delay(1000);
-  }
-  Serial.println(".. Connected");
-  Serial.print("SSID:");
-  Serial.print(WiFi.SSID());
-  Serial.print(" ID:");
-  Serial.println(WiFi.localIP());
-}
 void updateWifi() {
   if (wifiMulti.run(TiempoEsperaWifi) != WL_CONNECTED) {
     Serial.println("Not connected to Wifi!");
@@ -392,11 +423,12 @@ void setup() {
   servoInit();
   dcMotorInit();
   ultrasonicInit();
+  mpuInit();
   wifiInit();
   timeCounter1 = millis();
-
-  getLocation();
-  getDirections();
+  timeCounter2 = timeCounter1;
+  // getLocation();
+  // getDirections();
 }
 
 //======VOID LOOP===========================================================
@@ -409,11 +441,40 @@ void loop() {
     // timeCounter1 = millis();
   // }
 
-  if (millis() - timeCounter1 > 1000){
+  if (millis() - timeCounter2 > 1000){
     // Execute this lines each "sensingDelay" seconds
     timeCounter2 = millis();
     updateWifi(); 
   }
+
+  unsigned long currentTime = millis();
+  float deltaTime = (currentTime - prevTime) / 1000.0; // Convert ms to seconds
+
+  // Read accelerometer values
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  // Assuming motion in the x-axis; adjust if needed
+  float acceleration = a.acceleration.x; // in m/s^2
+
+  // Integrate acceleration to get velocity
+  velocity += acceleration * deltaTime;
+
+  // Integrate velocity to get distance
+  distance += velocity * deltaTime;
+
+  // Output the distance
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" meters");
+
+  // Update previous time
+  prevTime = currentTime;
+
+  // Small delay for stability
+  delay(10);
+
+
 }
 
 
