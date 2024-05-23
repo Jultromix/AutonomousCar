@@ -48,7 +48,7 @@ const int minDistance = 0;              //Expected min distance
 const uint32_t TiempoEsperaWifi = 5000; //This much will wait to connect
 WiFiMulti wifiMulti;
 
-const char* googleMapsApiKey = "AIzaSyA4wkYwQQbMOY4VClZA_Fr01B7Jv55FksE";   //access to Google API
+const char* googleMapsApiKey = "Your API";   //access to Google API
 
 //======VARIABLES===========================================================
 //======VARIABLES===========================================================
@@ -128,9 +128,9 @@ void ultrasonicInit(){
 void wifiInit() {
   // Replace with your network credentials
 
-  wifiMulti.addAP("Galaxy A33 5GB9A6","tbnb8296");
-  wifiMulti.addAP("WLAN_MOSAN","$Mosan1999");
-  wifiMulti.addAP("IZZI-8830","ttD7uDeX");
+  wifiMulti.addAP("net1","pss1");
+  wifiMulti.addAP("net2","pss2");
+  wifiMulti.addAP("net3","pss3");
 
   WiFi.mode(WIFI_MODE_STA);
   Serial.print("Conecting ..");
